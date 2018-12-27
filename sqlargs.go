@@ -1,9 +1,11 @@
 package sqlargs
 
 import (
+	"fmt"
 	"go/ast"
-	"go/types"
+	"strconv"
 
+	"github.com/lfittl/pg_query_go"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -24,47 +26,41 @@ var Analyzer = &analysis.Analyzer{
 	FactTypes:        []analysis.Fact{new(foundFact)},
 }
 
-var name string // -name flag
-
-func init() {
-	Analyzer.Flags.StringVar(&name, "name", name, "name of the function to find")
-}
-
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, f := range pass.Files {
-		ast.Inspect(f, func(n ast.Node) bool {
-			if call, ok := n.(*ast.CallExpr); ok {
-				var id *ast.Ident
-				switch fun := call.Fun.(type) {
-				case *ast.Ident:
-					id = fun
-				case *ast.SelectorExpr:
-					id = fun.Sel
+		if f.Name != nil && f.Name.Name == "backend" {
+			ast.Inspect(f, func(n ast.Node) bool {
+				if call, ok := n.(*ast.CallExpr); ok {
+					sel, isSel := call.Fun.(*ast.SelectorExpr)
+					if isSel && sel.Sel != nil {
+						switch sel.Sel.Name {
+						case "Exec", "QueryRow", "Query":
+							if len(call.Args) > 0 {
+								arg0 := call.Args[0]
+								if bl, ok := arg0.(*ast.BasicLit); ok {
+									query, err := strconv.Unquote(bl.Value)
+									if err != nil {
+										fmt.Println(err)
+										return true
+									}
+									_, err = pg_query.Parse(query)
+									if err != nil {
+										pass.Reportf(call.Lparen, "Invalid query: %v\n", err)
+									}
+								}
+							}
+							// // Now print the params of the query
+							// for _, a := range call.Args {
+							// 	fmt.Printf("[%#v] ", a)
+							// }
+							// fmt.Println()
+						}
+					}
 				}
-				if id != nil && !pass.TypesInfo.Types[id].IsType() && id.Name == name {
-					pass.Reportf(call.Lparen, "call of %s(...)", id.Name)
-				}
-			}
-			return true
-		})
-	}
-
-	// Export a fact for each matching function.
-	//
-	// These facts are produced only to test the testing
-	// infrastructure in the analysistest package.
-	// They are not consumed by the findcall Analyzer
-	// itself, as would happen in a more realistic example.
-	for _, f := range pass.Files {
-		for _, decl := range f.Decls {
-			if decl, ok := decl.(*ast.FuncDecl); ok && decl.Name.Name == name {
-				if obj, ok := pass.TypesInfo.Defs[decl.Name].(*types.Func); ok {
-					pass.ExportObjectFact(obj, new(foundFact))
-				}
-			}
+				return true
+			})
 		}
 	}
-
 	return nil, nil
 }
 
