@@ -3,6 +3,7 @@ package sqlargs
 import (
 	"fmt"
 	"go/ast"
+	"go/types"
 	"strconv"
 
 	"github.com/lfittl/pg_query_go"
@@ -28,25 +29,66 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, f := range pass.Files {
-		if f.Name != nil && f.Name.Name == "backend" {
-			ast.Inspect(f, func(n ast.Node) bool {
-				if call, ok := n.(*ast.CallExpr); ok {
-					sel, isSel := call.Fun.(*ast.SelectorExpr)
-					if isSel && sel.Sel != nil {
-						switch sel.Sel.Name {
-						case "Exec", "QueryRow", "Query":
-							if len(call.Args) > 0 {
-								arg0 := call.Args[0]
-								if bl, ok := arg0.(*ast.BasicLit); ok {
-									query, err := strconv.Unquote(bl.Value)
-									if err != nil {
-										fmt.Println(err)
+		// We ignore files which do not import database/sql
+		hasImport := false
+		for _, i := range f.Imports {
+			if i.Path != nil {
+				path, _ := strconv.Unquote(i.Path.Value)
+				if path == "database/sql" {
+					hasImport = true
+					break
+				}
+			}
+		}
+		if !hasImport {
+			continue
+		}
+
+		ast.Inspect(f, func(n ast.Node) bool {
+			// We filter only function calls.
+			if call, ok := n.(*ast.CallExpr); ok {
+				// Now we need to find expressions like these in the source code.
+				// db.Exec(`INSERT INTO <> (foo, bar) VALUES ($1, $2)`, param1, param2)
+
+				// A CallExpr has 2 parts - Fun and Args.
+				// A Fun can either be an Ident (Fun()) or a SelectorExpr (foo.Fun()).
+				// Since we are looking for patterns like db.Exec, we need to filter only SelectorExpr
+				// We will ignore dot imported functions.
+				sel, isSel := call.Fun.(*ast.SelectorExpr)
+				if isSel && sel.Sel != nil {
+					// A SelectorExpr has 2 parts - X (db) and Sel (Exec/Query/QueryRow).
+					// Now that we are inside the SelectorExpr, we need to verify 2 things -
+					// 1. The function name is either Exec or Query or QueryRow; because that is what we are interested in.
+					// 2. The type of the selector is either sql.DB or sql.Tx.
+					switch sel.Sel.Name {
+					case "Exec", "QueryRow", "Query":
+						if len(call.Args) > 0 {
+							if typ, ok := pass.TypesInfo.Types[sel.X]; ok {
+								pt, ok := (typ.Type).(*types.Pointer)
+								if ok {
+									if pt.Elem().String() == "database/sql.DB" || pt.Elem().String() == "database/sql.Tx" {
+										fmt.Println("match!")
+									} else {
 										return true
 									}
-									_, err = pg_query.Parse(query)
-									if err != nil {
-										pass.Reportf(call.Lparen, "Invalid query: %v\n", err)
-									}
+								} else {
+									return true
+								}
+							}
+							// sel.X can be ident or selector Expr
+							switch expr := sel.X.(type) {
+							case *ast.Ident:
+								fmt.Printf("%#v\n", expr.Obj)
+							case *ast.SelectorExpr:
+								fmt.Printf("%#v\n", expr.X)
+							}
+
+							arg0 := call.Args[0]
+							if bl, ok := arg0.(*ast.BasicLit); ok {
+								query, _ := strconv.Unquote(bl.Value)
+								_, err = pg_query.Parse(query)
+								if err != nil {
+									pass.Reportf(call.Lparen, "Invalid query: %v\n", err)
 								}
 							}
 							// // Now print the params of the query
@@ -57,9 +99,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						}
 					}
 				}
-				return true
-			})
-		}
+			}
+			return true
+		})
 	}
 	return nil, nil
 }
