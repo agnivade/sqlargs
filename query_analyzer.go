@@ -15,8 +15,10 @@ func analyzeQuery(query string, call *ast.CallExpr, pass *analysis.Pass) {
 		return
 	}
 	// Analyze the parse tree for semantic errors.
-	stmt := tree.Statements[0] // First statement has to be there.
-	rawStmt, ok := stmt.(nodes.RawStmt)
+	if len(tree.Statements) == 0 {
+		return
+	}
+	rawStmt, ok := tree.Statements[0].(nodes.RawStmt)
 	if !ok {
 		return
 	}
