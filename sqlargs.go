@@ -1,12 +1,10 @@
 package sqlargs
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"strconv"
 
-	"github.com/lfittl/pg_query_go"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -76,11 +74,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			arg0 := call.Args[0]
 			if bl, ok := arg0.(*ast.BasicLit); ok {
 				query, _ := strconv.Unquote(bl.Value) // errors seem to be ignored in vet checkers.
-				tree, err := pg_query.Parse(query)
-				if err != nil {
-					pass.Reportf(call.Lparen, "Invalid query: %v\n", err)
-				}
-				fmt.Println(tree)
+				analyzeQuery(query, call, pass)
 			}
 			// // Now print the params of the query
 			// for _, a := range call.Args {
