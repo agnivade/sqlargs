@@ -40,5 +40,38 @@ func analyzeQuery(query string, call *ast.CallExpr, pass *analysis.Pass) {
 		if numCols != numValues {
 			pass.Reportf(call.Lparen, "No. of columns (%d) not equal to no. of values (%d)", numCols, numValues)
 		}
+		numParams := numParams(selStmt.ValuesLists[0])
+		args := len(call.Args[1:])
+		// A safe check is to just check if args are less than no. of params. If this is true,
+		// then there has to be an error somewhere. On the contrary, if there are less params
+		// found than args, then it just means we haven't parsed the query well enough and there are
+		// other parts of the query which use the other arguments.
+		if args < numParams {
+			pass.Reportf(call.Lparen, "No. of args (%d) is less than no. of params (%d)", args, numParams)
+		}
 	}
+}
+
+//numParams returns the count of unique paramters.
+func numParams(params []nodes.Node) int {
+	num := 0
+	// posMap is used to keep track of unique positional parameters.
+	posMap := make(map[int]bool)
+	for _, p := range params {
+		switch t := p.(type) {
+		case nodes.ParamRef:
+			if !posMap[t.Number] {
+				num++
+				posMap[t.Number] = true
+			}
+		case nodes.TypeCast:
+			if pRef, ok := t.Arg.(nodes.ParamRef); ok {
+				if !posMap[pRef.Number] {
+					num++
+					posMap[pRef.Number] = true
+				}
+			}
+		}
+	}
+	return num
 }

@@ -76,12 +76,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				query, _ := strconv.Unquote(bl.Value) // errors seem to be ignored in vet checkers.
 				analyzeQuery(query, call, pass)
 			}
-			// // Now print the params of the query
-			// for _, a := range call.Args {
-			// 	fmt.Printf("[%#v] ", a)
-			// }
-			// fmt.Println()
-
 			return true
 		})
 	}
