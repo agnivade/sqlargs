@@ -1,4 +1,4 @@
-# sqlargs
+# sqlargs [![Build Status](https://travis-ci.org/agnivade/sqlargs.svg?branch=master)](https://travis-ci.org/agnivade/sqlargs)
 A vet analyzer which checks sql(only Postgres!) queries for correctness.
 
 ### Background
