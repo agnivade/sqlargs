@@ -92,7 +92,7 @@ func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
 	}
 	// Get the type info of X of the selector.
 	typ, ok := typesInfo.Types[sel.X]
-	if !ok {
+	if !ok { // test change
 		return false
 	}
 	ptr, ok := typ.Type.(*types.Pointer)
