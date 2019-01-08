@@ -56,7 +56,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		// Since we are looking for patterns like db.Exec, we need to filter only SelectorExpr
 		// We will ignore dot imported functions.
 		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || sel.Sel == nil {
+		if !ok {
 			return
 		}
 
