@@ -2,6 +2,7 @@ package a
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -11,9 +12,15 @@ func runDB() {
 	var p1, p2 string
 
 	// Execs
+	db.Exec(`DELETE FROM t`)
+
+	queryStr := fmt.Sprintf(`INSERT INTO t VALUES ($1, $%d) `, 1) // Should not crash
+	db.Exec(queryStr, p1, p2)
+
 	db.Exec(`INSERT INTO t VALUES ($1, $2)`, p1, p2)
 
-	db.Exec(`INSERT INTO t (c1, c2) VALUES ($1, $2)`, p1, p2)
+	const q = `INSERT INTO t(c1 c2) VALUES ($1, $2)`
+	db.Exec(q, p1, p2) // want `Invalid query: syntax error at or near "c2"`
 
 	db.Exec(`INSERT INTO t (c1, c2) VALUES ($1, $2)`, p1, "const")
 

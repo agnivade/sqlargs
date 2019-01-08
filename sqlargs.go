@@ -2,8 +2,8 @@ package sqlargs
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/types"
-	"strconv"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -75,10 +75,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 
 		arg0 := call.Args[0]
-		if bl, ok := arg0.(*ast.BasicLit); ok {
-			query, _ := strconv.Unquote(bl.Value) // errors seem to be ignored in vet checkers.
-			analyzeQuery(query, call, pass)
+		typ, ok := pass.TypesInfo.Types[arg0]
+		if !ok || typ.Value == nil {
+			return
 		}
+		analyzeQuery(constant.StringVal(typ.Value), call, pass)
 	})
 
 	return nil, nil
