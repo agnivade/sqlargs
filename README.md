@@ -5,13 +5,17 @@ A vet analyzer which checks sql(only Postgres!) queries for correctness.
 
 Let's assume you have a query like:
 
-`db.Exec("insert into table (c1, c2, c3, c4) values ($1, $2, $3, $4)", p1, p2, p3, p4)`. And it's the middle of the night and you need to add a new column. You quickly change the query to -
+`db.Exec("insert into table (c1, c2, c3, c4) values ($1, $2, $3, $4)", p1, p2, p3, p4)`.
 
-`db.Exec("insert into table (c1, c2, c3, c4, c5) values ($1, $2, $3, $4)", p1, p2, p3, p4, p5)`. Everything compiles fine. Except it's not ! A `$5` is missing !
+It's the middle of the night and you need to add a new column. You quickly change the query to -
 
-This is a semantic error which can only get caught during runtime. Ofcourse, if there are tests, then this does not happen. But sometimes I get lazy and don't write tests. :sweat_smile:
+`db.Exec("insert into table (c1, c2, c3, c4, c5) values ($1, $2, $3, $4)", p1, p2, p3, p4, p5)`.
 
-Therefore I wrote a vet analyzer which will statically check for semantic errors like these and flag them beforehand.
+Everything compiles fine. Except it's not ! A `$5` is missing. It can even go the other way round; you add the `$5` but forget to add `c5`.
+
+This is a semantic error which will eventually get caught while running the app. Not to mention, if there are tests. But sometimes I get lazy and don't write tests for _all_ my sql queries. :sweat_smile:
+
+`sqlargs` will statically check for semantic errors like these and flag them beforehand.
 
 ### Quick start
 
@@ -29,4 +33,4 @@ OR
 sqlargs ./...
 ```
 
-### P.S.: This only works for Postgres queries. So if your codebase has queries which do not match with the postgres query parser, it might flag incorrect errors.
+__P.S.: This only works for Postgres queries. So if your codebase has queries which do not match with the postgres query parser, it might flag incorrect errors.__
