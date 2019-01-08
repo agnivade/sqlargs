@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/passes/inspect"
+	"golang.org/x/tools/go/ast/inspector"
 )
 
 const Doc = `check sql query strings for correctness
@@ -21,6 +23,7 @@ var Analyzer = &analysis.Analyzer{
 	Name:             "sqlargs",
 	Doc:              Doc,
 	Run:              run,
+	Requires:         []*analysis.Analyzer{inspect.Analyzer},
 	RunDespiteErrors: true,
 }
 
@@ -37,47 +40,47 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		return nil, nil
 	}
 
-	for _, f := range pass.Files {
-		ast.Inspect(f, func(n ast.Node) bool {
-			// We filter only function calls.
-			call, ok := n.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			// Now we need to find expressions like these in the source code.
-			// db.Exec(`INSERT INTO <> (foo, bar) VALUES ($1, $2)`, param1, param2)
-
-			// A CallExpr has 2 parts - Fun and Args.
-			// A Fun can either be an Ident (Fun()) or a SelectorExpr (foo.Fun()).
-			// Since we are looking for patterns like db.Exec, we need to filter only SelectorExpr
-			// We will ignore dot imported functions.
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || sel.Sel == nil {
-				return true
-			}
-
-			// A SelectorExpr(db.Exec) has 2 parts - X (db) and Sel (Exec/Query/QueryRow).
-			// Now that we are inside the SelectorExpr, we need to verify 2 things -
-			// 1. The function name is Exec, Query or QueryRow; because that is what we are interested in.
-			// 2. The type of the selector is sql.DB, sql.Tx or sql.Stmt.
-			// TODO: Also do the Context couterparts.
-			if !isProperSelExpr(sel, pass.TypesInfo) {
-				return true
-			}
-			// Length of args has to be minimum of 1 because we only take Exec, Query or QueryRow;
-			// all of which have atleast 1 argument. But still writing a sanity check.
-			if len(call.Args) == 0 {
-				return true
-			}
-
-			arg0 := call.Args[0]
-			if bl, ok := arg0.(*ast.BasicLit); ok {
-				query, _ := strconv.Unquote(bl.Value) // errors seem to be ignored in vet checkers.
-				analyzeQuery(query, call, pass)
-			}
-			return true
-		})
+	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	// We filter only function calls.
+	nodeFilter := []ast.Node{
+		(*ast.CallExpr)(nil),
 	}
+
+	inspect.Preorder(nodeFilter, func(n ast.Node) {
+		call := n.(*ast.CallExpr)
+		// Now we need to find expressions like these in the source code.
+		// db.Exec(`INSERT INTO <> (foo, bar) VALUES ($1, $2)`, param1, param2)
+
+		// A CallExpr has 2 parts - Fun and Args.
+		// A Fun can either be an Ident (Fun()) or a SelectorExpr (foo.Fun()).
+		// Since we are looking for patterns like db.Exec, we need to filter only SelectorExpr
+		// We will ignore dot imported functions.
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || sel.Sel == nil {
+			return
+		}
+
+		// A SelectorExpr(db.Exec) has 2 parts - X (db) and Sel (Exec/Query/QueryRow).
+		// Now that we are inside the SelectorExpr, we need to verify 2 things -
+		// 1. The function name is Exec, Query or QueryRow; because that is what we are interested in.
+		// 2. The type of the selector is sql.DB, sql.Tx or sql.Stmt.
+		// TODO: Also do the Context couterparts.
+		if !isProperSelExpr(sel, pass.TypesInfo) {
+			return
+		}
+		// Length of args has to be minimum of 1 because we only take Exec, Query or QueryRow;
+		// all of which have atleast 1 argument. But still writing a sanity check.
+		if len(call.Args) == 0 {
+			return
+		}
+
+		arg0 := call.Args[0]
+		if bl, ok := arg0.(*ast.BasicLit); ok {
+			query, _ := strconv.Unquote(bl.Value) // errors seem to be ignored in vet checkers.
+			analyzeQuery(query, call, pass)
+		}
+	})
+
 	return nil, nil
 }
 
