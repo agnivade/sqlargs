@@ -22,7 +22,6 @@ var Analyzer = &analysis.Analyzer{
 	Doc:              Doc,
 	Run:              run,
 	RunDespiteErrors: true,
-	FactTypes:        []analysis.Fact{new(foundFact)},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -107,10 +106,3 @@ func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
 	}
 	return true
 }
-
-// foundFact is a fact associated with functions that match -name.
-// We use it to exercise the fact machinery in tests.
-type foundFact struct{}
-
-func (*foundFact) String() string { return "found" }
-func (*foundFact) AFact()         {}
