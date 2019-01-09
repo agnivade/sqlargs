@@ -102,10 +102,13 @@ func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
 	if !ok {
 		return false
 	}
+	n := ptr.Elem().(*types.Named)
+	if n.Obj().Pkg().Path() != "database/sql" {
+		return false
+	}
+	name := n.Obj().Name()
 	// Only accept sql.DB, sql.Tx or sql.Stmt types.
-	if ptr.Elem().String() != "database/sql.DB" &&
-		ptr.Elem().String() != "database/sql.Tx" &&
-		ptr.Elem().String() != "database/sql.Stmt" {
+	if name != "DB" && name != "Tx" && name != "Stmt" {
 		return false
 	}
 	return true
