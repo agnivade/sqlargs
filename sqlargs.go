@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/constant"
 	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -64,7 +65,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		// Now that we are inside the SelectorExpr, we need to verify 2 things -
 		// 1. The function name is Exec, Query or QueryRow; because that is what we are interested in.
 		// 2. The type of the selector is sql.DB, sql.Tx or sql.Stmt.
-		// TODO: Also do the Context couterparts.
 		if !isProperSelExpr(sel, pass.TypesInfo) {
 			return
 		}
@@ -72,6 +72,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		// all of which have atleast 1 argument. But still writing a sanity check.
 		if len(call.Args) == 0 {
 			return
+		}
+
+		// Check if it is a Context call, then re-slice the first item which is a context.
+		if strings.HasSuffix(sel.Sel.Name, "Context") {
+			call.Args = call.Args[1:]
 		}
 
 		arg0 := call.Args[0]
@@ -86,11 +91,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
-	// Only accept function calls for Exec, QueryRow and Query
+	// Only accept function calls for Exec, QueryRow and Query and their Context counterparts
 	fnName := sel.Sel.Name
-	if fnName != "Exec" &&
-		fnName != "QueryRow" &&
-		fnName != "Query" {
+	if fnName != "Exec" && fnName != "ExecContext" &&
+		fnName != "QueryRow" && fnName != "QueryRowContext" &&
+		fnName != "Query" && fnName != "QueryContext" {
 		return false
 	}
 	// Get the type info of X of the selector.
