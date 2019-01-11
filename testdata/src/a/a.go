@@ -1,6 +1,7 @@
 package a
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -36,6 +37,11 @@ func runDB() {
 	db.QueryRow(`INSERT INTO t (c1, c2, c3, c4) VALUES ('o', $1, 'epoch'::timestamp, $2) RETURNING c1`, p1, p2)
 
 	db.QueryRow(`INSERT INTO t (c1, c2, c3, c4) VALUES ('o', $1, 'epoch'::timestamp, $2) RETURNING c1`, p1) // want `No. of args \(1\) is less than no. of params \(2\)`
+
+	ctx := context.Background()
+	db.ExecContext(ctx, `INSERT INTO t(c1 c2) VALUES ($1, $2)`, p1, p2) // want `Invalid query: syntax error at or near "c2"`
+
+	db.QueryRowContext(ctx, `INSERT INTO t(c1 c2) VALUES ($1, $2) RETURNING c2`, p1, p2) // want `Invalid query: syntax error at or near "c2"`
 }
 
 func runTx() {
@@ -60,4 +66,9 @@ func runTx() {
 	tx.QueryRow(`INSERT INTO t (c1, c2, c3, c4) VALUES ('o', $1, 'epoch'::timestamp, $2) RETURNING c1`, p1, p2)
 
 	tx.QueryRow(`INSERT INTO t (c1, c2, c3, c4) VALUES ('o', $1, 'epoch'::timestamp, $2) RETURNING c1`, p1) // want `No. of args \(1\) is less than no. of params \(2\)`
+
+	ctx := context.Background()
+	tx.ExecContext(ctx, `INSERT INTO t(c1 c2) VALUES ($1, $2)`, p1, p2) // want `Invalid query: syntax error at or near "c2"`
+
+	tx.QueryRowContext(ctx, `INSERT INTO t(c1 c2) VALUES ($1, $2) RETURNING c2`, p1, p2) // want `Invalid query: syntax error at or near "c2"`
 }
