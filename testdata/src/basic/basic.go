@@ -1,4 +1,4 @@
-package a
+package basic
 
 import (
 	"context"
@@ -45,7 +45,8 @@ func runDB() {
 }
 
 func runTx() {
-	var tx *sql.Tx
+	// Doing a non-pointer check with transactions.
+	var tx sql.Tx
 	defer tx.Commit()
 	var p1, p2 string
 

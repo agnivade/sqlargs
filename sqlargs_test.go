@@ -7,7 +7,12 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
-func TestQueries(t *testing.T) {
+func TestBasic(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, sqlargs.Analyzer, "a") // loads testdata/src/a/a.go.
+	analysistest.Run(t, testdata, sqlargs.Analyzer, "basic") // loads testdata/src/basic
+}
+
+func TestEmbed(t *testing.T) {
+	testdata := analysistest.TestData()
+	analysistest.Run(t, testdata, sqlargs.Analyzer, "embed")
 }

@@ -30,14 +30,8 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	// We ignore packages that do not import database/sql.
-	hasImport := false
-	for _, imp := range pass.Pkg.Imports() {
-		if imp.Path() == "database/sql" {
-			hasImport = true
-			break
-		}
-	}
-	if !hasImport {
+	// FIXME: Not necessary if the package just imports jmoiron/sqlx
+	if !imports(pass.Pkg, "database/sql") {
 		return nil, nil
 	}
 
@@ -103,18 +97,64 @@ func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
 	if !ok {
 		return false
 	}
-	ptr, ok := typ.Type.(*types.Pointer)
+
+	var nTyp *types.Named
+	switch t := typ.Type.(type) {
+	case *types.Pointer:
+		// If it is a pointer, get the element
+		nTyp = t.Elem().(*types.Named)
+	case *types.Named:
+		nTyp = t
+	}
+
+	if nTyp == nil {
+		return false
+	}
+
+	// If the object is directly *sql.DB
+	if isSqlObj(nTyp.Obj(), false) {
+		return true
+	}
+
+	// Otherwise, it can be a struct which embeds *sql.DB
+	u := nTyp.Underlying()
+	st, ok := u.(*types.Struct)
 	if !ok {
 		return false
 	}
-	n := ptr.Elem().(*types.Named)
-	if n.Obj().Pkg().Path() != "database/sql" {
-		return false
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if f.Embedded() && isSqlObj(f, true) { // check if the embedded field is *sql.DB-ish or not.
+			return true
+		}
 	}
-	name := n.Obj().Name()
+	return false
+}
+
+// isSqlObj reports whether the object is of type sql.DB-ish or not.
+func isSqlObj(obj types.Object, embedded bool) bool {
+	if embedded {
+		if !imports(obj.Pkg(), "database/sql") {
+			return false
+		}
+	} else {
+		if obj.Pkg().Path() != "database/sql" {
+			return false
+		}
+	}
+	name := obj.Name()
 	// Only accept sql.DB, sql.Tx or sql.Stmt types.
 	if name != "DB" && name != "Tx" && name != "Stmt" {
 		return false
 	}
 	return true
+}
+
+func imports(pkg *types.Package, path string) bool {
+	for _, imp := range pkg.Imports() {
+		if imp.Path() == path {
+			return true
+		}
+	}
+	return false
 }
