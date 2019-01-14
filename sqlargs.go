@@ -30,8 +30,7 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	// We ignore packages that do not import database/sql.
-	// FIXME: Not necessary if the package just imports jmoiron/sqlx
-	if !imports(pass.Pkg, "database/sql") {
+	if !imports(pass.Pkg, "database/sql") || !imports(pass.Pkg, "github.com/jmoiron/sqlx") {
 		return nil, nil
 	}
 
@@ -85,11 +84,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
-	// Only accept function calls for Exec, QueryRow and Query and their Context counterparts
+	// Only accept function calls for Exec, QueryRow and Query and their Context/sqlx counterparts
 	fnName := sel.Sel.Name
-	if fnName != "Exec" && fnName != "ExecContext" &&
-		fnName != "QueryRow" && fnName != "QueryRowContext" &&
-		fnName != "Query" && fnName != "QueryContext" {
+	switch fnName {
+	case "Exec", "QueryRow", "Query":
+	case "ExecContext", "QueryRowContext", "QueryContext":
+	case "MustExec", "QueryRowx", "Queryx":
+	case "MustExecContext", "QueryRowxContext", "QueryxContext":
+	default:
 		return false
 	}
 	// Get the type info of X of the selector.
@@ -138,7 +140,8 @@ func isSqlObj(obj types.Object, embedded bool) bool {
 			return false
 		}
 	} else {
-		if obj.Pkg().Path() != "database/sql" {
+		pkgPath := stripVendor(obj.Pkg().Path())
+		if pkgPath != "database/sql" && pkgPath != "github.com/jmoiron/sqlx" {
 			return false
 		}
 	}
@@ -152,9 +155,19 @@ func isSqlObj(obj types.Object, embedded bool) bool {
 
 func imports(pkg *types.Package, path string) bool {
 	for _, imp := range pkg.Imports() {
-		if imp.Path() == path {
+		if stripVendor(imp.Path()) == path {
 			return true
 		}
 	}
 	return false
+}
+
+// stripVendor strips out the vendor path prefix
+func stripVendor(pkgPath string) string {
+	idx := strings.LastIndex(pkgPath, "vendor/")
+	if idx < 0 {
+		return pkgPath
+	}
+	// len("vendor/") == 7
+	return pkgPath[idx+7:]
 }
