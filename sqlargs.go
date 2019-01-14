@@ -30,7 +30,7 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	// We ignore packages that do not import database/sql.
-	if !imports(pass.Pkg, "database/sql") || !imports(pass.Pkg, "github.com/jmoiron/sqlx") {
+	if !imports(pass.Pkg, "database/sql") && !imports(pass.Pkg, "github.com/jmoiron/sqlx") {
 		return nil, nil
 	}
 
