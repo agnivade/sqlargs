@@ -51,6 +51,46 @@ var validExprs = map[string]map[string]bool{
 		"Stmt.Query":           true,
 		"Stmt.QueryContext":    true,
 	},
+	"github.com/jmoiron/sqlx": {
+		// inherited
+		"DB.Exec":              true,
+		"DB.ExecContext":       true,
+		"DB.QueryRow":          true,
+		"DB.QueryRowContext":   true,
+		"DB.Query":             true,
+		"DB.QueryContext":      true,
+		"Tx.Exec":              true,
+		"Tx.ExecContext":       true,
+		"Tx.QueryRow":          true,
+		"Tx.QueryRowContext":   true,
+		"Tx.Query":             true,
+		"Tx.QueryContext":      true,
+		"Stmt.Exec":            true,
+		"Stmt.ExecContext":     true,
+		"Stmt.QueryRow":        true,
+		"Stmt.QueryRowContext": true,
+		"Stmt.Query":           true,
+		"Stmt.QueryContext":    true,
+		// extensions
+		"DB.MustExec":           true,
+		"DB.MustExecContext":    true,
+		"DB.QueryRowx":          true,
+		"DB.QueryRowxContext":   true,
+		"DB.Queryx":             true,
+		"DB.QueryxContext":      true,
+		"Tx.MustExec":           true,
+		"Tx.MustExecContext":    true,
+		"Tx.QueryRowx":          true,
+		"Tx.QueryRowxContext":   true,
+		"Tx.Queryx":             true,
+		"Tx.QueryxContext":      true,
+		"Stmt.MustExec":         true,
+		"Stmt.MustExecContext":  true,
+		"Stmt.QueryRowx":        true,
+		"Stmt.QueryRowxContext": true,
+		"Stmt.Queryx":           true,
+		"Stmt.QueryxContext":    true,
+	},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -170,14 +210,14 @@ func imports(pkg *types.Package, checkImports bool, paths ...string) bool {
 	if checkImports {
 		for _, imp := range pkg.Imports() {
 			for _, p := range paths {
-				if imp.Path() == p {
+				if stripVendor(imp.Path()) == p {
 					return true
 				}
 			}
 		}
 	} else {
 		for _, p := range paths {
-			if pkg.Path() == p {
+			if stripVendor(pkg.Path()) == p {
 				return true
 			}
 		}
