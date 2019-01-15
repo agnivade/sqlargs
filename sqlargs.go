@@ -28,10 +28,40 @@ var Analyzer = &analysis.Analyzer{
 	RunDespiteErrors: true,
 }
 
+// validExprs contain all the valid selector expressions to check in the code,
+// keyed by their package import path.
+var validExprs = map[string]map[string]bool{
+	"database/sql": {
+		"DB.Exec":              true,
+		"DB.ExecContext":       true,
+		"DB.QueryRow":          true,
+		"DB.QueryRowContext":   true,
+		"DB.Query":             true,
+		"DB.QueryContext":      true,
+		"Tx.Exec":              true,
+		"Tx.ExecContext":       true,
+		"Tx.QueryRow":          true,
+		"Tx.QueryRowContext":   true,
+		"Tx.Query":             true,
+		"Tx.QueryContext":      true,
+		"Stmt.Exec":            true,
+		"Stmt.ExecContext":     true,
+		"Stmt.QueryRow":        true,
+		"Stmt.QueryRowContext": true,
+		"Stmt.Query":           true,
+		"Stmt.QueryContext":    true,
+	},
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
-	// We ignore packages that do not import database/sql.
-	// FIXME: Not necessary if the package just imports jmoiron/sqlx
-	if !imports(pass.Pkg, "database/sql") {
+	// Getting the list of import paths.
+	var pkgs []string
+	for pkg := range validExprs {
+		pkgs = append(pkgs, pkg)
+	}
+
+	// We ignore packages that do not import the required paths.
+	if !imports(pass.Pkg, true, pkgs...) {
 		return nil, nil
 	}
 
@@ -69,6 +99,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 
 		// Check if it is a Context call, then re-slice the first item which is a context.
+		// XXX: This is a heuristic. Most DB code which takes context always ends with "Context"
+		// and takes the ctx as the first param. But there is no guarantee for this.
 		if strings.HasSuffix(sel.Sel.Name, "Context") {
 			call.Args = call.Args[1:]
 		}
@@ -85,13 +117,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
-	// Only accept function calls for Exec, QueryRow and Query and their Context counterparts
-	fnName := sel.Sel.Name
-	if fnName != "Exec" && fnName != "ExecContext" &&
-		fnName != "QueryRow" && fnName != "QueryRowContext" &&
-		fnName != "Query" && fnName != "QueryContext" {
-		return false
-	}
 	// Get the type info of X of the selector.
 	typ, ok := typesInfo.Types[sel.X]
 	if !ok {
@@ -111,49 +136,50 @@ func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
 		return false
 	}
 
-	// If the object is directly *sql.DB
-	if isSqlObj(nTyp.Obj(), false) {
-		return true
-	}
+	fnName := sel.Sel.Name
+	objName := nTyp.Obj().Name()
 
-	// Otherwise, it can be a struct which embeds *sql.DB
-	u := nTyp.Underlying()
-	st, ok := u.(*types.Struct)
-	if !ok {
-		return false
-	}
-	for i := 0; i < st.NumFields(); i++ {
-		f := st.Field(i)
-		if f.Embedded() && isSqlObj(f, true) { // check if the embedded field is *sql.DB-ish or not.
+	// Check valid selector expressions for a match.
+	for path, obj := range validExprs {
+		// If the object is a direct match.
+		if imports(nTyp.Obj().Pkg(), false, path) && obj[objName+"."+fnName] {
 			return true
+		}
+
+		// Otherwise, it can be a struct which embeds *sql.DB
+		u := nTyp.Underlying()
+		st, ok := u.(*types.Struct)
+		if !ok {
+			continue
+		}
+		for i := 0; i < st.NumFields(); i++ {
+			f := st.Field(i)
+			// check if the embedded field is *sql.DB-ish or not.
+			if f.Embedded() && imports(f.Pkg(), true, path) && obj[f.Name()+"."+fnName] {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-// isSqlObj reports whether the object is of type sql.DB-ish or not.
-func isSqlObj(obj types.Object, embedded bool) bool {
-	if embedded {
-		if !imports(obj.Pkg(), "database/sql") {
-			return false
-		}
-	} else {
-		if obj.Pkg().Path() != "database/sql" {
-			return false
-		}
-	}
-	name := obj.Name()
-	// Only accept sql.DB, sql.Tx or sql.Stmt types.
-	if name != "DB" && name != "Tx" && name != "Stmt" {
+func imports(pkg *types.Package, checkImports bool, paths ...string) bool {
+	if pkg == nil {
 		return false
 	}
-	return true
-}
-
-func imports(pkg *types.Package, path string) bool {
-	for _, imp := range pkg.Imports() {
-		if imp.Path() == path {
-			return true
+	if checkImports {
+		for _, imp := range pkg.Imports() {
+			for _, p := range paths {
+				if imp.Path() == p {
+					return true
+				}
+			}
+		}
+	} else {
+		for _, p := range paths {
+			if pkg.Path() == p {
+				return true
+			}
 		}
 	}
 	return false
