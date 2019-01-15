@@ -6,4 +6,4 @@ go:
 
 script:
   - GOPATH=`pwd`/testdata go get github.com/jmoiron/sqlx
-  - go test
+  - go test -v ./...
