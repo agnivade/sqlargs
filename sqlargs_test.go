@@ -29,18 +29,18 @@ func TestStripVendor(t *testing.T) {
 	}{
 		{
 			name:  "Strip",
-			input: "github.com/godwhoa/upboat/vendor/github.com/jmoiron/sqlx.DB",
-			want:  "github.com/jmoiron/sqlx.DB",
+			input: "github.com/godwhoa/upboat/vendor/github.com/jmoiron/sqlx",
+			want:  "github.com/jmoiron/sqlx",
 		},
 		{
 			name:  "Ignore",
-			input: "github.com/jmoiron/sqlx.DB",
-			want:  "github.com/jmoiron/sqlx.DB",
+			input: "github.com/jmoiron/sqlx",
+			want:  "github.com/jmoiron/sqlx",
 		},
 		{
 			name:  "Vendor in pkg URL",
-			input: "github.com/vendor/upboat/vendor/github.com/jmoiron/sqlx.DB",
-			want:  "github.com/jmoiron/sqlx.DB",
+			input: "github.com/vendor/upboat/vendor/github.com/jmoiron/sqlx",
+			want:  "github.com/jmoiron/sqlx",
 		},
 	}
 	for _, tt := range tests {
