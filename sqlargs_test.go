@@ -38,7 +38,7 @@ func TestStripVendor(t *testing.T) {
 			want:  "github.com/jmoiron/sqlx.DB",
 		},
 		{
-			name:  "\"vendor\" in pkg url",
+			name:  "Vendor in pkg URL",
 			input: "github.com/vendor/upboat/vendor/github.com/jmoiron/sqlx.DB",
 			want:  "github.com/jmoiron/sqlx.DB",
 		},
