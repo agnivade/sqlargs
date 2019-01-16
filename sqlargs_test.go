@@ -21,7 +21,7 @@ func TestSqlx(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "sqlx")
 }
 
-func Test_stripVendor(t *testing.T) {
+func TestStripVendor(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
