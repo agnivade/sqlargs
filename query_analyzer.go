@@ -8,7 +8,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-func analyzeQuery(query string, call *ast.CallExpr, pass *analysis.Pass) {
+func analyzeQuery(query string, call *ast.CallExpr, pass *analysis.Pass, checkArgs bool) {
 	tree, err := pg_query.Parse(query)
 	if err != nil {
 		pass.Reportf(call.Lparen, "Invalid query: %v", err)
@@ -39,6 +39,9 @@ func analyzeQuery(query string, call *ast.CallExpr, pass *analysis.Pass) {
 		numValues := len(selStmt.ValuesLists[0])
 		if numCols != numValues {
 			pass.Reportf(call.Lparen, "No. of columns (%d) not equal to no. of values (%d)", numCols, numValues)
+		}
+		if !checkArgs {
+			return
 		}
 		numParams := numParams(selStmt.ValuesLists[0])
 		args := len(call.Args[1:])

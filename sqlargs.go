@@ -38,6 +38,8 @@ var validExprs = map[string]map[string]bool{
 		"DB.QueryRowContext":   true,
 		"DB.Query":             true,
 		"DB.QueryContext":      true,
+		"DB.Prepare":           true,
+		"DB.PrepareContext":    true,
 		"Tx.Exec":              true,
 		"Tx.ExecContext":       true,
 		"Tx.QueryRow":          true,
@@ -72,32 +74,32 @@ var validExprs = map[string]map[string]bool{
 		"Stmt.Query":           true,
 		"Stmt.QueryContext":    true,
 		// extensions
-		"DB.MustExec":         true,
-		"DB.MustExecContext":  true,
-		"DB.NamedExec":        true,
-		"DB.NamedExecContext": true,
-		"DB.QueryRowx":        true,
-		"DB.QueryRowxContext": true,
-		"DB.Queryx":           true,
-		"DB.QueryxContext":    true,
-		// "DB.PrepareNamed":        true,
-		// "DB.PrepareNamedContext": true,
-		"Tx.MustExec":         true,
-		"Tx.MustExecContext":  true,
-		"Tx.QueryRowx":        true,
-		"Tx.QueryRowxContext": true,
-		"Tx.Queryx":           true,
-		"Tx.QueryxContext":    true,
-		// "Tx.PrepareNamed":        true,
-		// "Tx.PrepareNamedContext": true,
-		"Tx.NamedExec":          true,
-		"Tx.NamedExecContext":   true,
-		"Stmt.MustExec":         true,
-		"Stmt.MustExecContext":  true,
-		"Stmt.QueryRowx":        true,
-		"Stmt.QueryRowxContext": true,
-		"Stmt.Queryx":           true,
-		"Stmt.QueryxContext":    true,
+		"DB.MustExec":            true,
+		"DB.MustExecContext":     true,
+		"DB.NamedExec":           true,
+		"DB.NamedExecContext":    true,
+		"DB.QueryRowx":           true,
+		"DB.QueryRowxContext":    true,
+		"DB.Queryx":              true,
+		"DB.QueryxContext":       true,
+		"DB.PrepareNamed":        true,
+		"DB.PrepareNamedContext": true,
+		"Tx.MustExec":            true,
+		"Tx.MustExecContext":     true,
+		"Tx.QueryRowx":           true,
+		"Tx.QueryRowxContext":    true,
+		"Tx.Queryx":              true,
+		"Tx.QueryxContext":       true,
+		"Tx.PrepareNamed":        true,
+		"Tx.PrepareNamedContext": true,
+		"Tx.NamedExec":           true,
+		"Tx.NamedExecContext":    true,
+		"Stmt.MustExec":          true,
+		"Stmt.MustExecContext":   true,
+		"Stmt.QueryRowx":         true,
+		"Stmt.QueryRowxContext":  true,
+		"Stmt.Queryx":            true,
+		"Stmt.QueryxContext":     true,
 	},
 }
 
@@ -153,12 +155,16 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			call.Args = call.Args[1:]
 		}
 
+		// Another heuristic: if a function begins with Prepare, it usually returns
+		// a prepared statement; in which case we don't need to check for arguments.
+		checkArgs := !strings.HasPrefix(sel.Sel.Name, "Prepare")
+
 		arg0 := call.Args[0]
 		typ, ok := pass.TypesInfo.Types[arg0]
 		if !ok || typ.Value == nil {
 			return
 		}
-		analyzeQuery(constant.StringVal(typ.Value), call, pass)
+		analyzeQuery(constant.StringVal(typ.Value), call, pass, checkArgs)
 	})
 
 	return nil, nil
