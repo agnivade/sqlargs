@@ -8,7 +8,7 @@ import (
 )
 
 const Database_handle_InsertStr = "\"database_id\", \"import_id\", \"identifier\", \"url\", \"declared_creation_date\", \"created_at\""
-const Database_handle_InsertValuesStr = ":database_id, :import_id, :identifier, :url, :declared_creation_date, now()"
+const Database_handle_InsertValuesStr = "$1, $2, $3, $4, $5, now()"
 
 type Database struct {
 	Id               int    `db:"id" json:"id"`
@@ -28,21 +28,19 @@ func (d *Database) AnotherExistsWithSameName(tx *sqlx.Tx) (exists bool, err erro
 }
 
 // Get retrieves informations about a database stored in the main table
-// func (d *Database) Get(tx *sqlx.Tx) (err error) {
-// 	stmt, err := tx.PrepareNamed("SELECT * from \"database\" WHERE id=$1")
-// 	defer stmt.Close()
-// 	if err != nil {
-// 		return errors.New("database::Get: " + err.Error())
-// 	}
-// 	return stmt.Get(d, d)
-// }
+func (d *Database) Get(tx *sqlx.Tx) (err error) {
+	stmt, err := tx.PrepareNamed("SELECT * from \"database\" WHERE id=$1")
+	defer stmt.Close()
+	return stmt.Get(d, d)
+}
 
-// // AddHandle links a handle  to a database
-// func (d *Database) AddHandle(tx *sqlx.Tx) (id int, err error) {
-// 	stmt, err := tx.PrepareNamed("INSERT INTO \"database_handle\" (" + Database_handle_InsertStr + ") VALUES (" + Database_handle_InsertValuesStr + ") RETURNING id")
-// 	defer stmt.Close()
-// 	return
-// }
+// AddHandle links a handle  to a database
+func (d *Database) AddHandle(tx *sqlx.Tx) (id int, err error) {
+	stmt, err := tx.PrepareNamed("INSERT INTO \"database_handle\" (" + Database_handle_InsertStr + ") VALUES (" + Database_handle_InsertValuesStr + ") RETURNING id")
+	tx.PrepareNamed("INSERT INTOdatabase_handle\" (" + Database_handle_InsertStr + ") VALUES (" + Database_handle_InsertValuesStr + ") RETURNING id") // want `Invalid query: syntax error at or near "INTOdatabase_handle"`
+	defer stmt.Close()
+	return
+}
 
 // DeleteHandles unlinks handles
 func (d *Database) DeleteSpecificHandle(tx *sqlx.Tx, id int) error {
