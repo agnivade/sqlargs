@@ -177,31 +177,28 @@ func isProperSelExpr(sel *ast.SelectorExpr, typesInfo *types.Info) bool {
 		return false
 	}
 
-	var nTyp *types.Named
-	switch t := typ.Type.(type) {
-	case *types.Pointer:
-		// If it is a pointer, get the element
-		nTyp = t.Elem().(*types.Named)
-	case *types.Named:
-		nTyp = t
+	t := typ.Type
+	// If it is a pointer, get the element.
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = ptr.Elem()
 	}
-
-	if nTyp == nil {
+	named, ok := t.(*types.Named)
+	if !ok {
 		return false
 	}
 
 	fnName := sel.Sel.Name
-	objName := nTyp.Obj().Name()
+	objName := named.Obj().Name()
 
 	// Check valid selector expressions for a match.
 	for path, obj := range validExprs {
 		// If the object is a direct match.
-		if imports(nTyp.Obj().Pkg(), false, path) && obj[objName+"."+fnName] {
+		if imports(named.Obj().Pkg(), false, path) && obj[objName+"."+fnName] {
 			return true
 		}
 
 		// Otherwise, it can be a struct which embeds *sql.DB
-		u := nTyp.Underlying()
+		u := named.Underlying()
 		st, ok := u.(*types.Struct)
 		if !ok {
 			continue
