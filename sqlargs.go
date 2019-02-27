@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/constant"
 	"go/types"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -161,10 +162,31 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 		arg0 := call.Args[0]
 		typ, ok := pass.TypesInfo.Types[arg0]
-		if !ok || typ.Value == nil {
+		if !ok {
 			return
 		}
-		analyzeQuery(constant.StringVal(typ.Value), call, pass, checkArgs)
+		query := ""
+		if typ.Value != nil {
+			query = constant.StringVal(typ.Value)
+		} else { // query is a variable.
+			ident, ok := arg0.(*ast.Ident)
+			if !ok {
+				return
+			}
+			if ident.Obj == nil {
+				return
+			}
+			assign, ok := ident.Obj.Decl.(*ast.AssignStmt)
+			if !ok {
+				return
+			}
+			basic, ok := assign.Rhs[0].(*ast.BasicLit)
+			if !ok {
+				return
+			}
+			query, _ = strconv.Unquote(basic.Value)
+		}
+		analyzeQuery(query, call, pass, checkArgs)
 	})
 
 	return nil, nil
