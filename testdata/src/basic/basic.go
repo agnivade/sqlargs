@@ -23,6 +23,9 @@ func runDB() {
 	const q = `INSERT INTO t(c1 c2) VALUES ($1, $2)`
 	db.Exec(q, p1, p2) // want `Invalid query: syntax error at or near "c2"`
 
+	r := `INSERT INTO t(c1 c2) VALUES ($1, $2)`
+	db.Exec(r, p1, p2) // want `Invalid query: syntax error at or near "c2"`
+
 	db.Exec(`INSERT INTO t (c1, c2) VALUES ($1, $2)`, p1, "const")
 
 	db.Exec(`INSERT INTO t (c1) VALUES ($1::uuid, $2)`, p1, p2) // want `No. of columns \(1\) not equal to no. of values \(2\)`
@@ -40,6 +43,9 @@ func runDB() {
 
 	ctx := context.Background()
 	db.ExecContext(ctx, `INSERT INTO t(c1 c2) VALUES ($1, $2)`, p1, p2) // want `Invalid query: syntax error at or near "c2"`
+
+	r = `INSERT INTO t(c1 c2) VALUES ($1, $2)`
+	db.ExecContext(ctx, r, p1, p2) // want `Invalid query: syntax error at or near "c2"`
 
 	db.QueryRowContext(ctx, `INSERT INTO t(c1 c2) VALUES ($1, $2) RETURNING c2`, p1, p2) // want `Invalid query: syntax error at or near "c2"`
 }
